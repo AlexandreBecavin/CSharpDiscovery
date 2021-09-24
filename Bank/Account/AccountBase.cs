@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Bank.Audit;
@@ -23,14 +24,19 @@ namespace Bank.Account
 		
 		public virtual decimal OverdraftLimit { get; set; }
 		
-        public decimal Balance { get; private set; }
+        public decimal Balance 
+        { 
+            get
+            {
+                var transactions =  _transactionAudit.GetAccountTransactionsAsync(AccountNumber).Result;
+                return transactions.Sum(t => t.Amount * (t.TransactionType == TransactionType.Deposit ? 1 : -1 ));
+            }
+        }
 		
         public async Task DepositAsync(decimal amount)
         {
             if (_isLocked) throw new UnauthorizedAccountOperationException();
 			if (amount < 0) throw new UnauthorizedAccountOperationException();
-
-            Balance += amount;
 
             var transaction = new Transaction()
             {
@@ -46,7 +52,6 @@ namespace Bank.Account
         {
             if (_isLocked) throw new UnauthorizedAccountOperationException();
             if (!VerifyWithdrawAmount(amount)) throw new UnauthorizedAccountOperationException();
-            Balance -= amount;
 
             var transaction = new Transaction()
             {

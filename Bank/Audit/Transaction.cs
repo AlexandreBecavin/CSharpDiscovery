@@ -10,11 +10,15 @@ namespace Bank.Audit
 	/// </remarks>
 	public class Transaction
 	{
+		private static object _verrou = new object();
 		private static int _currentId = 0;
 
 		public Transaction()
 		{
-			Id = _currentId++;
+			lock (_verrou)
+			{
+				 Id = _currentId++;
+			}
 		}
 
 		public int Id { get; private set; }

@@ -8,8 +8,10 @@ namespace Bank.Audit
 {
     public class TransactionAudit : ITransactionAudit
     {
+        private Task _lastTask = Task.CompletedTask;
         private readonly Dictionary<int, List<Transaction>> _transactions = new Dictionary<int, List<Transaction>>();
         private readonly IDateService _dateService;
+        private static object _verrou = new object();
 
         public TransactionAudit(IDateService dateService)
         {
@@ -20,26 +22,30 @@ namespace Bank.Audit
         /// <summary>
 		/// Gets a list of transactions for the specified account
 		/// </summary>
-		public async Task<IEnumerable<Transaction>> GetAccountTransactionsAsync(int accountNumber)
+		public Task<IEnumerable<Transaction>> GetAccountTransactionsAsync(int accountNumber)
         {
-            if(!_transactions.ContainsKey(accountNumber)) return Enumerable.Empty<Transaction>();
+            return (Task<IEnumerable<Transaction>>)(_lastTask = _lastTask.ContinueWith<IEnumerable<Transaction>>(t => {
+                if(!_transactions.ContainsKey(accountNumber)) return Enumerable.Empty<Transaction>();
 
-            return _transactions[accountNumber];
+                return _transactions[accountNumber];
+            }));
         }
 
 		/// <summary>
 		/// Writes a transaction
 		/// </summary>
-		public async Task WriteTransactionAsync(Transaction transaction)
+		public Task WriteTransactionAsync(Transaction transaction)
         {
-            if (!_transactions.ContainsKey(transaction.AccountNumber))
-            {
-                _transactions.Add(transaction.AccountNumber, new List<Transaction>());
-            }
+            return _lastTask = _lastTask.ContinueWith(t => {
+                if (!_transactions.ContainsKey(transaction.AccountNumber))
+                {
+                    _transactions.Add(transaction.AccountNumber, new List<Transaction>());
+                }
 
-            transaction.TransactionDate = _dateService.GetCurrentDateTime();
+                transaction.TransactionDate = _dateService.GetCurrentDateTime();
 
-            _transactions[transaction.AccountNumber].Add(transaction);
+                _transactions[transaction.AccountNumber].Add(transaction);
+            });
         }
     }
 }
