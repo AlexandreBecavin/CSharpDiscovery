@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Bank.Account;
 using Bank.Audit;
 using Bank.DateService;
@@ -22,9 +23,13 @@ namespace Bank
 	{
 		private LockDownManager _lockDownManager;
 		private TransactionAudit _transactionAudit;
+		private readonly Dictionary<int, AccountBase> _accounts = new Dictionary<int, AccountBase>();
 
 		public IAccount GetAccount(AccountType type, int accountNumber)
 		{
+			if(_accounts.ContainsKey(accountNumber))
+				return _accounts[accountNumber];
+
 			AccountBase account = null;
 			if(type == AccountType.Current)
 				account = new CurrentAccount(accountNumber, GetAudit());
@@ -36,12 +41,12 @@ namespace Bank
 			ldm.LockDownStarted += account.OnLockDownStarted;
 			ldm.LockDownEnded += account.OnLockDownEnded;
 
-			return account;
+			return _accounts[accountNumber] = account;
 		}
 
 		public ITransactionAudit GetAudit()
 		{
-			if(_transactionAudit == null) _transactionAudit = new TransactionAudit();
+			if(_transactionAudit == null) _transactionAudit = new TransactionAudit(GetDateService());
 			return _transactionAudit;
 		}
 
@@ -56,7 +61,7 @@ namespace Bank
 		}
 		public IDateService GetDateService()
 		{
-			throw new NotImplementedException();
+			return new Bank.DateService.DateService();
 		}
 	}
 }
